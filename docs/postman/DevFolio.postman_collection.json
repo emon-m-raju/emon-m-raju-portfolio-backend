@@ -1,0 +1,198 @@
+{
+  "info": {
+    "_postman_id": "8791e30d-7c48-4500-8aa1-1db620e0e02e",
+    "name": "DevFolio API",
+    "description": "Credential-free examples for the DevFolio Django REST API. Configure a local environment first. Public POST requests create records; use only a local or isolated test database for write operations.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Owner login",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {"mode": "raw", "raw": "{\"username\":\"{{owner_username}}\",\"password\":\"{{owner_password}}\"}", "options": {"raw": {"language": "json"}}},
+            "url": "{{base_url}}auth/login/"
+          },
+          "event": [{"listen": "test", "script": {"type": "text/javascript", "exec": ["if (pm.response.code === 200) {", "  const tokens = pm.response.json();", "  pm.environment.set('access_token', tokens.access);", "  pm.environment.set('refresh_token', tokens.refresh);", "}"]}}]
+        },
+        {
+          "name": "Refresh JWT",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {"mode": "raw", "raw": "{\"refresh\":\"{{refresh_token}}\"}", "options": {"raw": {"language": "json"}}},
+            "url": "{{base_url}}auth/refresh/"
+          },
+          "event": [{"listen": "test", "script": {"type": "text/javascript", "exec": ["if (pm.response.code === 200) {", "  const tokens = pm.response.json();", "  pm.environment.set('access_token', tokens.access);", "  if (tokens.refresh) pm.environment.set('refresh_token', tokens.refresh);", "}"]}}]
+        },
+        {
+          "name": "Current owner",
+          "request": {"method": "GET", "url": "{{base_url}}auth/me/"},
+          "auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{access_token}}", "type": "string"}]}
+        },
+        {
+          "name": "Logout and blacklist refresh token",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {"mode": "raw", "raw": "{\"refresh\":\"{{refresh_token}}\"}", "options": {"raw": {"language": "json"}}},
+            "url": "{{base_url}}auth/logout/"
+          },
+          "auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{access_token}}", "type": "string"}]}
+        },
+        {
+          "name": "Change password",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {"mode": "raw", "raw": "{\"old_password\":\"{{owner_password}}\",\"new_password\":\"{{new_password}}\"}", "options": {"raw": {"language": "json"}}},
+            "url": "{{base_url}}auth/change-password/"
+          },
+          "auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{access_token}}", "type": "string"}]}
+        }
+      ]
+    },
+    {
+      "name": "Public portfolio reads",
+      "item": [
+        {"name": "Profile", "request": {"method": "GET", "url": "{{base_url}}profile/"}},
+        {"name": "Skills", "request": {"method": "GET", "url": "{{base_url}}skills/"}},
+        {"name": "Education", "request": {"method": "GET", "url": "{{base_url}}education/"}},
+        {"name": "Experience", "request": {"method": "GET", "url": "{{base_url}}experiences/"}},
+        {"name": "Projects", "request": {"method": "GET", "url": "{{base_url}}projects/"}},
+        {"name": "Categories", "request": {"method": "GET", "url": "{{base_url}}categories/"}},
+        {"name": "Tags", "request": {"method": "GET", "url": "{{base_url}}tags/"}},
+        {"name": "Published posts", "request": {"method": "GET", "url": "{{base_url}}posts/"}},
+        {"name": "Post detail", "request": {"method": "GET", "url": "{{base_url}}posts/{{post_slug}}/"}},
+        {"name": "Post comments and replies", "request": {"method": "GET", "url": "{{base_url}}posts/{{post_slug}}/comments/"}}
+      ]
+    },
+    {
+      "name": "Owner portfolio management",
+      "auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{access_token}}", "type": "string"}]},
+      "item": [
+        {
+          "name": "Profile",
+          "item": [
+            {"name": "Update profile", "request": {"method": "PATCH", "header": [{"key": "Content-Type", "value": "application/json"}], "body": {"mode": "raw", "raw": "{\"headline\":\"Updated headline\"}", "options": {"raw": {"language": "json"}}}, "url": "{{base_url}}profile/"}}
+          ]
+        },
+        {
+          "name": "Skills",
+          "item": [
+            {"name": "Create skill", "request": {"method": "POST", "header": [{"key": "Content-Type", "value": "application/json"}], "body": {"mode": "raw", "raw": "{\"name\":\"Example skill\",\"category\":\"BACKEND\",\"proficiency\":70,\"display_order\":0,\"is_featured\":false}", "options": {"raw": {"language": "json"}}}, "url": "{{base_url}}skills/"}},
+            {"name": "Update skill", "request": {"method": "PATCH", "header": [{"key": "Content-Type", "value": "application/json"}], "body": {"mode": "raw", "raw": "{\"proficiency\":75}", "options": {"raw": {"language": "json"}}}, "url": "{{base_url}}skills/{{resource_id}}/"}},
+            {"name": "Delete skill", "request": {"method": "DELETE", "url": "{{base_url}}skills/{{resource_id}}/"}}
+          ]
+        },
+        {
+          "name": "Education and experience",
+          "item": [
+            {"name": "Create education", "request": {"method": "POST", "header": [{"key": "Content-Type", "value": "application/json"}], "body": {"mode": "raw", "raw": "{\"institution\":\"Example institution\",\"degree\":\"Example degree\",\"field_of_study\":\"Example field\",\"start_year\":2020,\"end_year\":2024,\"grade\":\"\",\"description\":\"Example only; replace with genuine information.\"}", "options": {"raw": {"language": "json"}}}, "url": "{{base_url}}education/"}},
+            {"name": "Update education", "request": {"method": "PATCH", "header": [{"key": "Content-Type", "value": "application/json"}], "body": {"mode": "raw", "raw": "{\"description\":\"Updated genuine details\"}", "options": {"raw": {"language": "json"}}}, "url": "{{base_url}}education/{{resource_id}}/"}},
+            {"name": "Delete education", "request": {"method": "DELETE", "url": "{{base_url}}education/{{resource_id}}/"}},
+            {"name": "Create experience", "request": {"method": "POST", "header": [{"key": "Content-Type", "value": "application/json"}], "body": {"mode": "raw", "raw": "{\"company\":\"Example company\",\"role\":\"Example role\",\"employment_type\":\"FULL_TIME\",\"start_date\":\"2022-01-01\",\"end_date\":\"2023-01-01\",\"is_current\":false,\"description\":\"Example only; replace with genuine experience.\"}", "options": {"raw": {"language": "json"}}}, "url": "{{base_url}}experiences/"}},
+            {"name": "Update experience", "request": {"method": "PATCH", "header": [{"key": "Content-Type", "value": "application/json"}], "body": {"mode": "raw", "raw": "{\"description\":\"Updated genuine details\"}", "options": {"raw": {"language": "json"}}}, "url": "{{base_url}}experiences/{{resource_id}}/"}},
+            {"name": "Delete experience", "request": {"method": "DELETE", "url": "{{base_url}}experiences/{{resource_id}}/"}}
+          ]
+        },
+        {
+          "name": "Projects",
+          "item": [
+            {"name": "Create project", "request": {"method": "POST", "header": [{"key": "Content-Type", "value": "application/json"}], "body": {"mode": "raw", "raw": "{\"title\":\"Example project\",\"summary\":\"Example summary\",\"description\":\"Example only; replace with a real project.\",\"category\":\"WEB\",\"live_url\":\"https://example.invalid\",\"github_url\":\"\",\"is_featured\":false,\"display_order\":0}", "options": {"raw": {"language": "json"}}}, "url": "{{base_url}}projects/"}},
+            {"name": "Update project", "request": {"method": "PATCH", "header": [{"key": "Content-Type", "value": "application/json"}], "body": {"mode": "raw", "raw": "{\"summary\":\"Updated summary\"}", "options": {"raw": {"language": "json"}}}, "url": "{{base_url}}projects/{{project_slug}}/"}},
+            {"name": "Delete project", "request": {"method": "DELETE", "url": "{{base_url}}projects/{{project_slug}}/"}}
+          ]
+        },
+        {
+          "name": "Categories and tags",
+          "item": [
+            {"name": "Create category", "request": {"method": "POST", "header": [{"key": "Content-Type", "value": "application/json"}], "body": {"mode": "raw", "raw": "{\"name\":\"Example category\",\"slug\":\"example-category\",\"description\":\"Example only\"}", "options": {"raw": {"language": "json"}}}, "url": "{{base_url}}categories/"}},
+            {"name": "Update category", "request": {"method": "PATCH", "header": [{"key": "Content-Type", "value": "application/json"}], "body": {"mode": "raw", "raw": "{\"description\":\"Updated description\"}", "options": {"raw": {"language": "json"}}}, "url": "{{base_url}}categories/{{resource_id}}/"}},
+            {"name": "Delete category", "request": {"method": "DELETE", "url": "{{base_url}}categories/{{resource_id}}/"}},
+            {"name": "Create tag", "request": {"method": "POST", "header": [{"key": "Content-Type", "value": "application/json"}], "body": {"mode": "raw", "raw": "{\"name\":\"Example tag\",\"slug\":\"example-tag\"}", "options": {"raw": {"language": "json"}}}, "url": "{{base_url}}tags/"}},
+            {"name": "Update tag", "request": {"method": "PATCH", "header": [{"key": "Content-Type", "value": "application/json"}], "body": {"mode": "raw", "raw": "{\"name\":\"Updated example tag\"}", "options": {"raw": {"language": "json"}}}, "url": "{{base_url}}tags/{{resource_id}}/"}},
+            {"name": "Delete tag", "request": {"method": "DELETE", "url": "{{base_url}}tags/{{resource_id}}/"}}
+          ]
+        },
+        {
+          "name": "Posts",
+          "item": [
+            {"name": "Owner posts (all statuses)", "request": {"method": "GET", "url": "{{base_url}}posts/?status=all"}},
+            {"name": "Create draft post", "request": {"method": "POST", "header": [{"key": "Content-Type", "value": "application/json"}], "body": {"mode": "raw", "raw": "{\"title\":\"Example draft post\",\"slug\":\"example-draft-post\",\"excerpt\":\"Example excerpt\",\"content\":\"Drafts may be shorter than 300 words.\",\"category\":\"{{category_id}}\",\"tags\":[],\"status\":\"DRAFT\",\"is_featured\":false}", "options": {"raw": {"language": "json"}}}, "url": "{{base_url}}posts/"}},
+            {"name": "Update post", "request": {"method": "PATCH", "header": [{"key": "Content-Type", "value": "application/json"}], "body": {"mode": "raw", "raw": "{\"excerpt\":\"Updated example excerpt\"}", "options": {"raw": {"language": "json"}}}, "url": "{{base_url}}posts/{{post_slug}}/"}},
+            {"name": "Delete post", "request": {"method": "DELETE", "url": "{{base_url}}posts/{{post_slug}}/"}},
+            {"name": "Dashboard stats", "request": {"method": "GET", "url": "{{base_url}}dashboard/stats/"}}
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Likes and comments",
+      "item": [
+        {
+          "name": "Toggle post like",
+          "request": {"method": "POST", "header": [{"key": "X-Visitor-Id", "value": "{{visitor_id}}"}], "url": "{{base_url}}posts/{{post_slug}}/like/"}
+        },
+        {
+          "name": "Submit public comment (creates a pending comment)",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {"mode": "raw", "raw": "{\"name\":\"Example visitor\",\"email\":\"visitor@example.invalid\",\"content\":\"Example comment for a local test database only.\"}", "options": {"raw": {"language": "json"}}},
+            "url": "{{base_url}}posts/{{post_slug}}/comments/"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Owner comment moderation",
+      "auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{access_token}}", "type": "string"}]},
+      "item": [
+        {"name": "List comments (optional filters)", "request": {"method": "GET", "url": "{{base_url}}comments/?is_approved=false"}},
+        {"name": "Comment detail", "request": {"method": "GET", "url": "{{base_url}}comments/{{comment_id}}/"}},
+        {"name": "Approve or unapprove comment", "request": {"method": "POST", "header": [{"key": "Content-Type", "value": "application/json"}], "body": {"mode": "raw", "raw": "{\"is_approved\":true}", "options": {"raw": {"language": "json"}}}, "url": "{{base_url}}comments/{{comment_id}}/approval/"}},
+        {"name": "Reply to top-level comment", "request": {"method": "POST", "header": [{"key": "Content-Type", "value": "application/json"}], "body": {"mode": "raw", "raw": "{\"post\":\"{{post_id}}\",\"parent\":\"{{comment_id}}\",\"name\":\"Portfolio owner\",\"email\":\"owner@example.invalid\",\"content\":\"Example owner reply for a local test database only.\"}", "options": {"raw": {"language": "json"}}}, "url": "{{base_url}}comments/replies/"}},
+        {"name": "Delete comment", "request": {"method": "DELETE", "url": "{{base_url}}comments/{{comment_id}}/"}}
+      ]
+    },
+    {
+      "name": "Contact messages",
+      "item": [
+        {
+          "name": "Submit public contact message (creates a message)",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {"mode": "raw", "raw": "{\"name\":\"Example sender\",\"email\":\"sender@example.invalid\",\"subject\":\"Example question\",\"message\":\"Example message for a local test database only.\"}", "options": {"raw": {"language": "json"}}},
+            "url": "{{base_url}}contact/"
+          }
+        },
+        {
+          "name": "Owner inbox (optional read-state filter)",
+          "request": {"method": "GET", "url": "{{base_url}}contact/?is_read=false"},
+          "auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{access_token}}", "type": "string"}]}
+        },
+        {
+          "name": "Owner message detail",
+          "request": {"method": "GET", "url": "{{base_url}}contact/{{message_id}}/"},
+          "auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{access_token}}", "type": "string"}]}
+        },
+        {
+          "name": "Set message read state",
+          "request": {
+            "method": "PATCH",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {"mode": "raw", "raw": "{\"is_read\":true}", "options": {"raw": {"language": "json"}}},
+            "url": "{{base_url}}contact/{{message_id}}/read-state/"
+          },
+          "auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{access_token}}", "type": "string"}]}
+        }
+      ]
+    }
+  ]
+}
