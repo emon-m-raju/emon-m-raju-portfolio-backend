@@ -1,48 +1,108 @@
 # DevFolio
 
-A single-owner developer portfolio with a Django REST Framework API and React/Vite frontend. Public visitors can browse portfolio and blog content, leave comments, and send contact messages. The authenticated portfolio owner can manage content, moderate comments, and handle messages.
+DevFolio is a single-owner portfolio and blog. The backend is a Django REST
+Framework API; the separately versioned frontend is a React/Vite application.
+Visitors can view published content, like posts, leave comments, and send
+contact messages. The portfolio owner can manage content and moderate
+submissions.
 
-## Technology
-
-- Backend: Python, Django, Django REST Framework, SimpleJWT, django-filter, SQLite, Pillow, django-cors-headers
-- Frontend: React, Vite, React Router, TanStack Query, Axios
-- API: JSON over HTTP; media files are served locally by Django in development
-
-## Project layout
+## Architecture
 
 ```text
-config/                 Django settings and URL configuration
-portfolio/              Models, serializers, permissions, views, tests, admin
-portfolio/migrations/   Database migrations
-portfolio/management/   Safe demo-comment preview/seed command
-frontend/src/api/        Shared Axios API client and API functions
-frontend/src/dashboard/  Owner dashboard pages
-frontend/src/sections/   Public portfolio sections
-docs/                    Submission checklist, recording script, Postman files
+Browser
+  React 19 + Vite
+  React Router       public pages and protected owner dashboard
+  TanStack Query     API-backed server state
+  Axios              API transport, JWT and visitor headers
+       |
+       | JSON requests to /api/ (CORS enabled)
+       v
+Django 5 + Django REST Framework
+  config/             settings, root URLs, WSGI entry point
+  portfolio/          models, serializers, permissions, viewsets and signals
+  PostgreSQL          production database via DATABASE_URL
+  SQLite              local fallback when DATABASE_URL is unset
 ```
 
-## Local setup
+The public profile endpoint returns one profile object. Public post querysets
+contain published posts only; the authenticated superuser can manage drafts.
+Static files are collected to `staticfiles/` and served through WhiteNoise.
+
+## API endpoints
+
+All API paths are prefixed with `/api/` and use trailing slashes.
+
+| Area | Endpoints | Access |
+|---|---|---|
+| Authentication | `POST auth/login/`, `POST auth/refresh/`, `GET auth/me/`, `POST auth/logout/`, `POST auth/change-password/` | Owner |
+| Profile | `GET profile/`, `PATCH profile/` | Public read; owner write |
+| Portfolio data | `GET/POST/PATCH/DELETE skills/`, `experiences/`, `education/`, `projects/`, `categories/`, `tags/` | Public read; owner write |
+| Posts | `GET/POST posts/`, `GET/PATCH/DELETE posts/{slug}/` | Published public; owner manages all |
+| Post engagement | `POST posts/{slug}/like/`, `GET/POST posts/{slug}/comments/` | Public |
+| Comment moderation | `GET comments/`, `POST comments/{id}/approval/`, `POST comments/replies/` | Owner |
+| Contact | `POST contact/`, `GET contact/`, `PATCH contact/{id}/read-state/` | Public submission; owner inbox |
+| Dashboard | `GET dashboard/stats/` | Owner |
+| Django admin | `/admin/` | Django staff |
+
+List endpoints are paginated. Search, filtering, and ordering are available
+where configured by the viewset. Comment submissions default to pending; public
+comment reads include approved comments and approved one-level replies. Published
+posts require a category and at least 300 words.
+
+## Authentication and visitor identity
+
+The owner signs in through `POST /api/auth/login/` and receives SimpleJWT access
+and refresh tokens. Send protected requests with
+`Authorization: Bearer <access-token>`. Refresh an access token through
+`POST /api/auth/refresh/`; use `POST /api/auth/logout/` to blacklist a refresh
+token. Only an authenticated superuser is treated as the portfolio owner. There
+is no public registration endpoint.
+
+The frontend creates a UUID visitor ID and stores it in browser local storage.
+It sends this value as `X-Visitor-Id` on API requests. Post likes are unique per
+post and visitor; the header also supports the API's view-count cooldown.
+Browser local storage is accessible to JavaScript running on the site; use
+standard XSS protections and never store a token in source code.
+
+## Environment variables
+
+Copy `.env.example` to `.env` for local backend development. Values in the
+example are placeholders and must be replaced where appropriate.
+
+| Variable | Purpose |
+|---|---|
+| `SECRET_KEY` | Django signing secret; use a private random value outside local development |
+| `DEBUG` | Enables Django debug behavior; disable in production |
+| `ALLOWED_HOSTS` | Comma-separated accepted hostnames |
+| `DATABASE_URL` | PostgreSQL connection URL; when unset, settings fall back to `db.sqlite3` |
+| `CORS_ALLOWED_ORIGINS` | Comma-separated browser origins permitted to call the API |
+| `CSRF_TRUSTED_ORIGINS` | Comma-separated trusted origins for Django CSRF checks |
+| `RENDER` | Set by Render to enable production defaults |
+| `RENDER_EXTERNAL_HOSTNAME` | Render-provided service hostname, added to allowed hosts |
+
+The frontend has its own `VITE_API_BASE_URL`, configured in
+`frontend/.env`; its local example points to `http://127.0.0.1:8000/api/`.
+Frontend `VITE_` variables are embedded in the browser bundle and must not
+contain secrets.
+
+## Local development
 
 ### Backend
 
-Use Python supported by the installed Django release. From the project root:
+From the repository root, using Windows PowerShell:
 
 ```powershell
 py -m venv venv
 .\venv\Scripts\Activate.ps1
 python -m pip install -r requirements.txt
 Copy-Item .env.example .env
-```
-
-Set a private, random `SECRET_KEY` and appropriate `DEBUG`, `ALLOWED_HOSTS`, and `CORS_ALLOWED_ORIGINS` values in your local `.env`. Never commit `.env` or put credentials in the Postman collection. Apply existing migrations and create an owner account:
-
-```powershell
 python manage.py migrate
 python manage.py createsuperuser
 python manage.py runserver
 ```
 
-No schema change is required for the implemented features. Do not generate migrations unless a future model change requires one.
+Set a private `SECRET_KEY` and local CORS origins in `.env`. For a local
+PostgreSQL database, set `DATABASE_URL`; otherwise SQLite is used.
 
 ### Frontend
 
@@ -55,47 +115,67 @@ npm install
 npm run dev
 ```
 
-Set `VITE_API_BASE_URL` to the backend API root (the template uses `http://127.0.0.1:8000/api/`). `npm run build` creates the production bundle in `frontend/dist`.
+Set `VITE_API_BASE_URL` to the backend API root, including `/api/`. The Vite
+production bundle is generated in `frontend/dist`.
 
-## API overview
+## Demo data
 
-All paths below are relative to `/api/`, except the Django admin.
+After migrations, create the baseline profile, categories, skills, and featured
+project with:
 
-| Area | Endpoint(s) | Access |
-|---|---|---|
-| Authentication | `POST auth/login/`, `POST auth/refresh/`, `GET auth/me/`, `POST auth/logout/`, `POST auth/change-password/` | Owner login/JWT |
-| Profile | `GET profile/`, owner `PATCH profile/` | Public read; owner write |
-| Portfolio data | `GET/POST/PATCH/DELETE skills/`, `experiences/`, `education/`, `projects/`, `categories/`, `tags/` | Public read; owner write |
-| Posts | `GET/POST/PATCH/DELETE posts/`, `GET posts/{slug}/`, `POST posts/{slug}/like/`, `GET/POST posts/{slug}/comments/` | Published public; owner manages all |
-| Comment moderation | `GET comments/`, `POST comments/{id}/approval/`, `POST comments/replies/` | Owner only |
-| Contact messages | `POST contact/` (public); owner `GET contact/` and `PATCH contact/{id}/read-state/` | Public submission; owner inbox |
-| Dashboard | `GET dashboard/stats/` | Owner only |
-| Admin | `/admin/` | Django staff |
+```powershell
+python manage.py seed_demo
+```
 
-List APIs use DRF pagination. Supported list search/filter/order parameters are exposed by the viewsets (for example `search`, `ordering`, `is_read`, `is_approved`, `category`, and `is_featured`). Public post lists contain published posts only; owners can request `?status=DRAFT` or `?status=all`. Published posts require a category and at least 300 words. Comment replies are owner-created and approved; public comment responses omit commenter email.
+The command uses `get_or_create`, so rerunning it does not overwrite existing
+records. The optional comment demo is separate and deliberately defaults to a
+read-only preview:
 
-Authenticate owner requests with `Authorization: Bearer <access_token>`. Refresh tokens through `auth/refresh/`; use `auth/logout/` to blacklist a refresh token. The frontend keeps the shared Axios client as its API transport and TanStack Query for server-state operations.
+```powershell
+python manage.py seed_demo_comments
+```
+
+Only run `python manage.py seed_demo_comments --apply` after reviewing and
+approving its clearly labeled sample content. Do not seed demo comments in
+production.
 
 ## Tests and checks
+
+Run backend checks from the repository root:
 
 ```powershell
 python manage.py check
 python manage.py test
 python manage.py makemigrations --check --dry-run
+```
+
+Build the frontend:
+
+```powershell
 Set-Location frontend
 npm run build
 ```
 
-The backend tests use Django's isolated test database. The frontend currently has a production build command but no dedicated automated frontend test script. See [docs/FINAL_SUBMISSION_CHECKLIST.md](./docs/FINAL_SUBMISSION_CHECKLIST.md) for verified project thresholds and remaining manual actions.
+The backend tests use Django's isolated test database. No automated frontend
+test script is currently configured.
+
+## Render deployment
+
+The root `render.yaml` defines a Python web service. Render runs `build.sh`,
+which installs requirements, collects static files, applies migrations, and
+creates baseline demo data. Configure `DATABASE_URL` and `SECRET_KEY` as
+Render environment variables; both are marked `sync: false` in the Blueprint.
+The service starts with Gunicorn at `config.wsgi:application`.
+
+The React frontend is deployed separately. Set its production
+`VITE_API_BASE_URL` to the Render API root, for example
+`https://<your-render-service>.onrender.com/api/`, then deploy the frontend
+from its repository using Vercel or another static host.
 
 ## Postman
 
-Import [docs/postman/DevFolio.postman_collection.json](./docs/postman/DevFolio.postman_collection.json) and optionally [docs/postman/DevFolio.postman_environment.json](./docs/postman/DevFolio.postman_environment.json). Set `base_url`, obtain JWT tokens using the login request, and place the tokens only in a local Postman environment. Collection examples use placeholders, not real credentials. Public contact/comment submissions create data; use a local/test database for write requests.
-
-## Demo comment seed safety
-
-`python manage.py seed_demo_comments` previews five clearly labeled fictional comments and one fictional owner reply. It does not write by default. Review the exact preview and obtain explicit approval before running `python manage.py seed_demo_comments --apply`. The command does not edit existing rows and aborts on a conflicting pre-existing demo row. Do not run it against production.
-
-## Repository and deployment
-
-No Git remote or deployment URL has been verified for this workspace. Add only links that have been independently confirmed.
+Import `docs/postman/DevFolio.postman_collection.json` and optionally
+`docs/postman/DevFolio.postman_environment.json`. Set the base URL and keep
+obtained JWTs in a local Postman environment. Collection examples use
+placeholders, not credentials. Run write requests against a local or test
+database.
