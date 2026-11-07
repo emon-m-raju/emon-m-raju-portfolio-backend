@@ -5,6 +5,7 @@ from django.contrib.auth import authenticate,update_session_auth_hash
 from rest_framework import viewsets,status,filters
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from rest_framework.exceptions import Throttled
 from rest_framework.permissions import AllowAny,IsAuthenticated
 from rest_framework.decorators import action
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -94,8 +95,14 @@ class PostViewSet(BaseViewSet):
   if request.method=='GET':
    roots=Comment.objects.filter(post=post,is_approved=True,parent__isnull=True).order_by('-created_at')
    return Response([{'id':c.id,'name':c.name,'content':c.content,'created_at':c.created_at,'replies':[{'id':r.id,'name':r.name,'content':r.content,'created_at':r.created_at} for r in c.replies.filter(is_approved=True)]} for c in roots])
-  throttle=CommentThrottle(); throttle.allow_request(request,self)
-  s=CommentSerializer(data=request.data); s.is_valid(raise_exception=True); s.save(post=post); return Response({'detail':'Your comment is awaiting approval.'},status=201)
+  throttle=CommentThrottle()
+  if not throttle.allow_request(request,self):
+   raise Throttled(wait=throttle.wait())
+  s=CommentSerializer(
+   data=request.data,
+   context={**self.get_serializer_context(),'post':post},
+  )
+  s.is_valid(raise_exception=True); s.save(post=post); return Response({'detail':'Your comment is awaiting approval.'},status=201)
 class CommentModerationViewSet(BaseViewSet):
  queryset=Comment.objects.all(); serializer_class=OwnerCommentSerializer; permission_classes=[OwnerOnly]; filterset_fields=['is_approved','post__slug']; search_fields=['name','email','content']; ordering_fields=['created_at','name']; ordering=['-created_at','pk']
  @action(detail=True,methods=['post'],serializer_class=CommentApprovalSerializer)

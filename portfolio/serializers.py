@@ -51,6 +51,15 @@ class TagSerializer(serializers.ModelSerializer):
 class CommentSerializer(serializers.ModelSerializer):
  email=serializers.EmailField(write_only=True)
  class Meta: model=Comment; fields='__all__'; read_only_fields=['is_approved','created_at','post']
+ def validate(self,data):
+  parent=data.get('parent')
+  if parent:
+   if parent.parent_id is not None:
+    raise serializers.ValidationError({'parent':'Replies must be attached to a top-level comment.'})
+   post=self.context.get('post')
+   if post is None or parent.post_id!=post.pk:
+    raise serializers.ValidationError({'parent':'The parent comment must belong to this post.'})
+  return data
  def validate_content(self,v):
   if not 5<=len(v)<=1000: raise serializers.ValidationError('Content must be 5–1000 characters.')
   return v
