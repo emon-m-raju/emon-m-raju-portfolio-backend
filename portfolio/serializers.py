@@ -4,9 +4,12 @@ from .models import *
 class AbsoluteURLMixin:
  def to_representation(self,instance):
   data=super().to_representation(instance); request=self.context.get('request')
-  if request:
-   for field in ['avatar','resume','cover_image']:
-    if data.get(field): data[field]=request.build_absolute_uri(data[field])
+  for field in ['avatar','resume','cover_image']:
+   if not data.get(field): continue
+   if field=='avatar' and isinstance(instance,Profile) and instance.avatar.name=='profile.jpg':
+    data[field]='/profile.jpg'
+   elif request:
+    data[field]=request.build_absolute_uri(data[field])
   return data
 class ProfileSerializer(AbsoluteURLMixin,serializers.ModelSerializer):
  class Meta: model=Profile; fields='__all__'

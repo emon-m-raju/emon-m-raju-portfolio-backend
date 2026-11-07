@@ -130,6 +130,17 @@ class OwnerDashboardApiTests(TestCase):
                     ),
                 ])
 
+    def test_seed_demo_sets_profile_image_api_path(self):
+        Profile.objects.filter(pk=1).update(avatar='old-avatar.jpg')
+
+        call_command('seed_demo', stdout=StringIO())
+
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.avatar.name, 'profile.jpg')
+        response = self.client.get('/api/profile/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['avatar'], '/profile.jpg')
+
     def test_owner_only_comment_approval_and_public_visibility(self):
         approval_url = f'/api/comments/{self.pending_comment.pk}/approval/'
         anonymous = self.client.post(

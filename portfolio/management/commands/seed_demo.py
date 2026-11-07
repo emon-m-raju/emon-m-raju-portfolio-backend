@@ -7,7 +7,7 @@ class Command(BaseCommand):
     help = 'Seed the baseline DevFolio demo data.'
 
     def handle(self, *args, **options):
-        Profile.objects.get_or_create(
+        profile, _ = Profile.objects.get_or_create(
             pk=1,
             defaults={
                 'full_name': 'Md Emon Mahamud Raju',
@@ -21,8 +21,12 @@ class Command(BaseCommand):
                 'years_of_experience': 2,
                 'is_available_for_hire': True,
                 'github_url': 'https://github.com/emon-m-raju',
+                'avatar': 'profile.jpg',
             },
         )
+        if profile.avatar.name != 'profile.jpg':
+            profile.avatar = 'profile.jpg'
+            profile.save(update_fields=['avatar'])
 
         for name, slug in (
             ('Web Development', 'web-development'),
