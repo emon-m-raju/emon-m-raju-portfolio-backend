@@ -1,6 +1,7 @@
 from pathlib import Path
 import dj_database_url
 from decouple import config, Csv
+from corsheaders.defaults import default_headers
 from django.core.exceptions import ImproperlyConfigured
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -64,6 +65,7 @@ CORS_ALLOWED_ORIGINS=config(
  default='http://localhost:5173,http://127.0.0.1:5173,https://emon-m-raju-portfolio-frontend.vercel.app',
  cast=Csv(),
 )
+CORS_ALLOW_HEADERS = (*default_headers, 'x-visitor-id')
 CSRF_TRUSTED_ORIGINS = list(dict.fromkeys([
  *config('CSRF_TRUSTED_ORIGINS', default='', cast=Csv()),
  'https://*.onrender.com',
