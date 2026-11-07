@@ -14,6 +14,8 @@ if not SECRET_KEY:
   raise ImproperlyConfigured('SECRET_KEY must be configured when DEBUG is False.')
 
 ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='127.0.0.1,localhost', cast=Csv())
+if '.onrender.com' not in ALLOWED_HOSTS:
+ ALLOWED_HOSTS.append('.onrender.com')
 RENDER_EXTERNAL_HOSTNAME = config('RENDER_EXTERNAL_HOSTNAME', default='')
 if RENDER_EXTERNAL_HOSTNAME and RENDER_EXTERNAL_HOSTNAME not in ALLOWED_HOSTS:
  ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
@@ -42,7 +44,7 @@ if DATABASE_URL:
  DATABASES = {'default': dj_database_url.parse(
   DATABASE_URL,
   conn_max_age=600,
-  ssl_require=not DEBUG,
+  ssl_require=IS_RENDER or not DEBUG,
  )}
 else:
  DATABASES = {'default': {'ENGINE': 'django.db.backends.sqlite3', 'NAME': BASE_DIR / 'db.sqlite3'}}
@@ -62,7 +64,11 @@ CORS_ALLOWED_ORIGINS=config(
  default='http://localhost:5173,http://127.0.0.1:5173,https://emon-m-raju-portfolio-frontend.vercel.app',
  cast=Csv(),
 )
-CSRF_TRUSTED_ORIGINS=config('CSRF_TRUSTED_ORIGINS', default='', cast=Csv())
+CSRF_TRUSTED_ORIGINS = list(dict.fromkeys([
+ *config('CSRF_TRUSTED_ORIGINS', default='', cast=Csv()),
+ 'https://*.onrender.com',
+ *CORS_ALLOWED_ORIGINS,
+]))
 SECURE_PROXY_SSL_HEADER=('HTTP_X_FORWARDED_PROTO','https')
 SECURE_SSL_REDIRECT=not DEBUG
 SESSION_COOKIE_SECURE=not DEBUG
