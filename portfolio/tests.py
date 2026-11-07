@@ -3,6 +3,7 @@ from io import StringIO
 from django.contrib.auth.models import User
 from django.core.cache import cache
 from django.core.management import call_command
+from django.db import IntegrityError, transaction
 from django.test import TestCase
 from rest_framework.test import APIClient
 
@@ -105,6 +106,29 @@ class OwnerDashboardApiTests(TestCase):
         self.profile.refresh_from_db()
         self.assertEqual(self.profile.phone, '01700000000')
         self.assertEqual(self.profile.bio, 'Updated owner bio.')
+
+    def test_profile_save_and_database_constraint_enforce_singleton(self):
+        Profile.objects.create(
+            full_name='Replacement Owner',
+            headline='Updated developer',
+            bio='Replacement biography.',
+            email='replacement@example.test',
+        )
+        self.assertEqual(Profile.objects.count(), 1)
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.full_name, 'Replacement Owner')
+
+        with self.assertRaises(IntegrityError):
+            with transaction.atomic():
+                Profile.objects.bulk_create([
+                    Profile(
+                        pk=2,
+                        full_name='Second Profile',
+                        headline='Developer',
+                        bio='A second profile.',
+                        email='second@example.test',
+                    ),
+                ])
 
     def test_owner_only_comment_approval_and_public_visibility(self):
         approval_url = f'/api/comments/{self.pending_comment.pk}/approval/'

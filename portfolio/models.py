@@ -1,5 +1,5 @@
 import uuid, os
-from django.db import models
+from django.db import models, router
 from django.contrib.auth.models import User
 from django.utils.text import slugify
 from django.utils import timezone
@@ -9,8 +9,17 @@ class TimeStamped(models.Model):
  class Meta: abstract=True
 class Profile(TimeStamped):
  full_name=models.CharField(max_length=160); headline=models.CharField(max_length=200); bio=models.TextField(); email=models.EmailField(); phone=models.CharField(max_length=30,blank=True); location=models.CharField(max_length=120,blank=True); avatar=models.ImageField(upload_to='profile/',blank=True,null=True); resume=models.FileField(upload_to='resume/',blank=True,null=True); github_url=models.URLField(blank=True); linkedin_url=models.URLField(blank=True); x_url=models.URLField(blank=True); website_url=models.URLField(blank=True); years_of_experience=models.PositiveIntegerField(default=0); is_available_for_hire=models.BooleanField(default=False)
+ class Meta:
+  constraints=[models.CheckConstraint(condition=models.Q(pk=1),name='profile_singleton_pk')]
  def save(self,*a,**kw):
-  if not self.pk and Profile.objects.exists(): self.pk=Profile.objects.first().pk
+  self.pk=1
+  using=kw.get('using') or router.db_for_write(type(self),instance=self)
+  if self._state.adding:
+   existing=Profile.objects.using(using).filter(pk=1).only('created_at').first()
+   if existing:
+    self.created_at=existing.created_at
+    self._state.adding=False
+    kw.pop('force_insert',None)
   super().save(*a,**kw)
  def __str__(self): return self.full_name
 class Skill(TimeStamped):
