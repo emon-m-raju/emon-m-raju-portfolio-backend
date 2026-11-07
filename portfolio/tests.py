@@ -192,6 +192,68 @@ class OwnerDashboardApiTests(TestCase):
         )
         self.assertEqual(public.data, [])
 
+    def test_public_comment_replies_must_be_one_level_and_same_post(self):
+        other_post = Post.objects.create(
+            title='Different post',
+            slug='different-post',
+            excerpt='Different excerpt',
+            content='Different content.',
+            category=self.category,
+            author=self.owner,
+            status='PUBLISHED',
+        )
+        other_post_comment = Comment.objects.create(
+            post=other_post,
+            name='Other visitor',
+            email='other@example.test',
+            content='A comment on another post.',
+        )
+        nested_comment = Comment.objects.create(
+            post=self.published_post,
+            parent=self.pending_comment,
+            name='Reply visitor',
+            email='reply@example.test',
+            content='A reply to the existing comment.',
+        )
+        url = f'/api/posts/{self.published_post.slug}/comments/'
+        payload = {
+            'name': 'Reply author',
+            'email': 'reply-author@example.test',
+            'content': 'This reply must be rejected.',
+        }
+
+        cross_post = self.client.post(
+            url,
+            {**payload, 'parent': other_post_comment.pk},
+            format='json',
+        )
+        self.assertEqual(cross_post.status_code, 400)
+        self.assertIn('parent', cross_post.data)
+
+        nested_reply = self.client.post(
+            url,
+            {**payload, 'parent': nested_comment.pk},
+            format='json',
+        )
+        self.assertEqual(nested_reply.status_code, 400)
+        self.assertIn('parent', nested_reply.data)
+
+    def test_public_comment_submission_is_throttled(self):
+        url = f'/api/posts/{self.published_post.slug}/comments/'
+        payload = {
+            'name': 'Frequent visitor',
+            'email': 'frequent@example.test',
+            'content': 'A comment within the allowed length.',
+        }
+
+        responses = [
+            self.client.post(url, payload, format='json')
+            for _ in range(6)
+        ]
+
+        self.assertTrue(all(response.status_code == 201 for response in responses[:5]))
+        self.assertEqual(responses[5].status_code, 429)
+
     def test_owner_reply_must_reference_a_top_level_comment_on_same_post(self):
         other_post = Post.objects.create(
             title='Other post',
